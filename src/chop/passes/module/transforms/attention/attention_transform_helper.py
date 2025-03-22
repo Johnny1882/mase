@@ -385,9 +385,6 @@ class MGQAWrapper(torch.nn.Module):
             else:
                 raise ValueError(f"Unexpected attention_mask shape: {attention_mask.shape}")
 
-
-
-        # Call MGQA with the relevant tensors.
         # Pass cross-attention if encoder_hidden_states is given, otherwise self-attention.
         if encoder_hidden_states is not None:
             out = self.mgqa(
