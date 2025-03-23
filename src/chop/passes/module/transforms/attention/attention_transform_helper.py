@@ -10,7 +10,8 @@ from chop.nn.attention.modules.mla import (
 )
 from chop.nn.attention.modules.mgqa import (
     MGQALayers,
-    MGQA
+    MGQA,
+    Intermediates,
 )
 from ...module_modify_helper import (
     get_module_by_name, 
@@ -360,6 +361,7 @@ class MGQAWrapper(torch.nn.Module):
     def __init__(self, mgqa: MGQA):
         super().__init__()
         self.mgqa = mgqa
+        self.kv_cache = 0.0
 
     def forward(
         self,
@@ -384,22 +386,41 @@ class MGQAWrapper(torch.nn.Module):
                 input_mask = attention_mask.bool()
             else:
                 raise ValueError(f"Unexpected attention_mask shape: {attention_mask.shape}")
+        
+        if use_cache:
+            intermediates = Intermediates()
+            intermediates.cached_kv = layer_past
+           
+            if layer_past:
+                past_key, past_value = layer_past
+
+                # Calculate and add memory usage to global counter
+                key_memory = past_key.nelement() * past_key.element_size()
+                value_memory = past_value.nelement() * past_value.element_size()
+                current_cache_size = key_memory + value_memory
+                self.kv_cache += (current_cache_size / (1024 * 1024))
+        else:
+            intermediates = None
 
         # Pass cross-attention if encoder_hidden_states is given, otherwise self-attention.
         if encoder_hidden_states is not None:
-            out = self.mgqa(
+            out, intermediates = self.mgqa(
                 x=hidden_states,
                 context=encoder_hidden_states,
                 mask=input_mask,
                 context_mask=encoder_attention_mask,
+                return_intermediates = use_cache,
+                cache = intermediates,
             )
         else:
-            out = self.mgqa(
+            out, intermediates = self.mgqa(
                 x=hidden_states,
                 mask=input_mask,
+                return_intermediates = intermediates,
             )
 
-        return (out, None, None)
+        present = intermediates.cached_kv if intermediates else None
+        return (out, present, None)
     
 
 init_func_map = {

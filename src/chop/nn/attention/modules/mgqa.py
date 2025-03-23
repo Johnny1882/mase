@@ -1256,7 +1256,7 @@ class MGQA(nn.Module):
             out = out.masked_fill(~mask, 0.)
 
         if not return_intermediates:
-            return out
+            return out, None
 
         intermediates.cached_kv = cached_kv
 
