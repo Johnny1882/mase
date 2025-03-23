@@ -21,16 +21,7 @@ test_cases = [
     "Das Wetter ist heute schön."
 ]
 
-def spda_transform_pass(model):
-    pass_args = {
-        "by": "type",
-        "gpt2spda": {
-            "config": {
-                "name": "mgqa",
-                # "kv_heads": 2,
-            }
-        },
-    }
+def spda_transform_pass(model, pass_args):
     model, _ = attention_transform_pass(model, pass_args)
     return model
 
@@ -104,9 +95,19 @@ def evaluate_kv_cache_custom(model, tokenizer, text, max_length=100):
 
 if __name__ == "__main__":
     sample_text = "Dies ist ein Beispieltext für die Übersetzung Dies ist ein Beispieltext für die Übersetzung Dies ist ein Beispieltext für die Übersetzung."
-    kv_cache_outputs = evaluate_kv_cache(model, tokenizer, sample_text)
-    model = spda_transform_pass(model)
-    kv_cache_outputs = evaluate_kv_cache_custom(model, tokenizer, sample_text)
+    for kv_heads in [1, 2, 4, 8]:
+        pass_args = {
+            "by": "type",
+            "gpt2spda": {
+                "config": {
+                    "name": "mgqa",
+                    "kv_heads": 2,
+                }
+            },
+        }
+        # kv_cache_outputs = evaluate_kv_cache(model, tokenizer, sample_text)
+        mgqa_model = spda_transform_pass(model, pass_args)
+        kv_cache_outputs = evaluate_kv_cache_custom(mgqa_model, tokenizer, sample_text)
 
     # for text in test_cases:
     #     generated_text = generate_text(model, tokenizer, text)
