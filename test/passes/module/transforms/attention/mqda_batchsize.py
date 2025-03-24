@@ -119,7 +119,7 @@ def apply_mgqa_transform(model, kv_heads=2):
 
 if __name__ == "__main__":
     results = {}
-    for kv in range(1, 13):
+    for kv in range(1, 2):
         print(f"Testing MGQA transform with kv_heads={kv}...")
         # Reload the original model each time (fresh weights)
         with open(model_path, "rb") as f:
@@ -134,12 +134,11 @@ if __name__ == "__main__":
             tokenizer=tokenizer,
             text=sample_text,
             start_bs=100,
-            end_bs=100000,  # Adjust as needed
+            end_bs=100000, 
             device="cuda:0"
         )
 
         # Estimate memory improvement in percentage
-        # (based on ratio of feasible batch sizes)
         if max_bs_baseline > 0:
             mem_improv_pct = ((max_bs_kv - max_bs_baseline) / max_bs_baseline) * 100
         else:
