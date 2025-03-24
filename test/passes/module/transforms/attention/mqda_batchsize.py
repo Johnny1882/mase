@@ -5,7 +5,7 @@ import sys
 import dill
 import time
 from pathlib import Path
-
+import math
 import torch
 import torch.nn as nn
 from datasets import load_dataset
@@ -25,11 +25,6 @@ def find_max_batch_size_bisect(
     end_bs=8192,
     device="cuda:0"
 ):
-    """
-    Performs a binary search between [start_bs .. end_bs] to find
-    the largest batch size that fits in GPU memory without OOM.
-    Returns the maximum feasible batch size.
-    """
     model.to(device)
     model.eval()
 
@@ -117,11 +112,12 @@ def apply_mgqa_transform(model, kv_heads=2):
     transformed_model, _ = attention_transform_pass(model, pass_args)
     return transformed_model
 
+
+
 if __name__ == "__main__":
     results = {}
     for kv in range(1, 2):
         print(f"Testing MGQA transform with kv_heads={kv}...")
-        # Reload the original model each time (fresh weights)
         with open(model_path, "rb") as f:
             current_model = dill.load(f)
 
@@ -135,14 +131,13 @@ if __name__ == "__main__":
             text=sample_text,
             start_bs=100,
             end_bs=100000, 
-            device="cuda:0"
+            device="cuda:3"
         )
 
         # Estimate memory improvement in percentage
         if max_bs_baseline > 0:
             mem_improv_pct = ((max_bs_kv - max_bs_baseline) / max_bs_baseline) * 100
         else:
-            # If baseline was 0 for some reason, define improvement as 0
             mem_improv_pct = 0.0
 
         results[kv] = {

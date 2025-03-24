@@ -4,6 +4,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from chop.passes.module.transforms import quantize_module_transform_pass, attention_transform_pass
 from chop.passes.module.transforms.attention.attention_transform_helper import MGQAWrapper
+from datasets import load_dataset
+import random
 
 # Load GPT-2 model and tokenizer
 model = AutoModelForCausalLM.from_pretrained(checkpoint)
@@ -15,11 +17,16 @@ from transformers.models.gpt2.modeling_gpt2 import (
     GPT2Block,
 )
 
-# Create a simple test case
-test_cases = [
-    "Hallo, wie geht es dir?",
-    "Das Wetter ist heute schön."
-]
+def get_samples(dataset, num_samples=10, seed=42):
+    """Get random samples from WikiText-2 dataset with max length 1024."""
+    import random
+    random.seed(seed)
+    
+    data = dataset["train"]
+    indices = random.sample(range(len(data)), min(num_samples, len(data)))
+    
+    return [data[idx]["text"][:1024] for idx in indices]
+
 
 def spda_transform_pass(model, pass_args):
     model, _ = attention_transform_pass(model, pass_args)
@@ -38,7 +45,7 @@ def generate_text(model, tokenizer, text, max_length=50):
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 # Evaluate kv cache used
-def evaluate_kv_cache(model, tokenizer, text, max_length=100):
+def evaluate_kv_cache(model, tokenizer, text, max_length=200):
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
     with torch.no_grad():
         outputs = model.generate(
@@ -70,12 +77,11 @@ def evaluate_kv_cache(model, tokenizer, text, max_length=100):
 
     return outputs
 
-def evaluate_kv_cache_custom(model, tokenizer, text, max_length=100):
+def evaluate_kv_cache_custom(model, tokenizer, text, max_new_tokens=100):
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
     with torch.no_grad():
         outputs = model.generate(
             inputs["input_ids"], 
-            max_length=max_length, 
             use_cache=True, 
             # output_attentions=True, 
             # output_hidden_states=True,
@@ -88,28 +94,28 @@ def evaluate_kv_cache_custom(model, tokenizer, text, max_length=100):
         if isinstance(m, module):
             kv_cache_size += m.kv_cache
 
-    print(f"Total KV cache size: {kv_cache_size:.2f} MB")
+    print(f"current KV cache size: {kv_cache_size:.2f} MB")
 
-    return outputs
+    return kv_cache_size
 
 
 if __name__ == "__main__":
-    sample_text = "Dies ist ein Beispieltext für die Übersetzung Dies ist ein Beispieltext für die Übersetzung Dies ist ein Beispieltext für die Übersetzung."
-    for kv_heads in [1, 2, 4, 8]:
+    dataset = load_dataset("wikitext", "wikitext-2-raw-v1")
+    num_samples = 2
+    test_cases = get_samples(dataset, num_samples = num_samples, seed=42)
+
+    for kv_heads in [1, 2, 3, 4, 6, 12]:
         pass_args = {
             "by": "type",
             "gpt2spda": {
                 "config": {
                     "name": "mgqa",
-                    "kv_heads": 2,
+                    "kv_heads": kv_heads,
                 }
             },
         }
-        # kv_cache_outputs = evaluate_kv_cache(model, tokenizer, sample_text)
         mgqa_model = spda_transform_pass(model, pass_args)
-        kv_cache_outputs = evaluate_kv_cache_custom(mgqa_model, tokenizer, sample_text)
-
-    # for text in test_cases:
-    #     generated_text = generate_text(model, tokenizer, text)
-    # print(f"\nInput: {text}")
-    # print(f"Generated: {generated_text}")
+        
+        for i, review in enumerate(test_cases):
+            total_kv_cache = evaluate_kv_cache_custom(mgqa_model, tokenizer, review)
+        print(f"kv heads = {kv_heads} for {num_samples} samples: {total_kv_cache}, average: {total_kv_cache/num_samples}")
