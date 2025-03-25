@@ -41,26 +41,45 @@ def prepare_dataset():
     tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
     tokenizer.pad_token = tokenizer.eos_token
     
-    # Define tokenization function with block size
-    def tokenize_function(examples):
-        return tokenizer(examples["text"], truncation=True, max_length=512)
+    # Define tokenization function with block size for autoregressive modeling
+    block_size = 128  # Context window size for autoregressive modeling
+    
+    def tokenize_and_group(examples):
+        # Tokenize
+        tokenized = tokenizer(examples["text"], truncation=False, add_special_tokens=False)
+        
+        # Concatenate all texts and split into blocks
+        concatenated = {k: sum(tokenized[k], []) for k in tokenized.keys()}
+        total_length = len(concatenated["input_ids"])
+        
+        # Create blocks of block_size
+        result = {
+            k: [concatenated[k][i: i + block_size] for i in range(0, total_length, block_size) 
+                if i + block_size <= total_length]
+            for k in concatenated.keys()
+        }
+        
+        # Create labels for autoregressive modeling (shifted input_ids)
+        result["labels"] = result["input_ids"].copy()
+        
+        return result
     
     # Tokenize dataset
     tokenized_dataset = {}
     for split in dataset:
         tokenized_dataset[split] = dataset[split].map(
-            tokenize_function,
+            tokenize_and_group,
             batched=True,
             remove_columns=["text"],
-            desc=f"Tokenizing dataset - {split}",
+            desc=f"Tokenizing and grouping dataset - {split}",
         )
     
-    # Additional filtering to remove empty inputs
+    # Additional filtering to remove input blocks that are too short
     filtered_dataset = {}
     for split in tokenized_dataset:
         filtered_dataset[split] = tokenized_dataset[split].filter(
-            lambda x: len(x["input_ids"]) > 0, 
-            desc=f"Filtering empty examples - {split}"
+            lambda x: len(x["input_ids"]) == block_size, 
+            desc=f"Filtering blocks - {split}"
         )
         logger.info(f"{split} dataset size: {len(filtered_dataset[split])}")
     
@@ -76,13 +95,13 @@ def evaluate_model(model, test_dataset, tokenizer, model_name="Model"):
     # Create data collator
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
-        mlm=False,  # No masked language modeling for GPT-2
+        mlm=False,  # No masked language modeling for autoregressive GPT-2
     )
     
     # Set evaluation arguments
     eval_args = TrainingArguments(
         output_dir=f"./results_{model_name.lower().replace(' ', '_')}",
-        per_device_eval_batch_size=4,
+        per_device_eval_batch_size=8,
         do_eval=True,
         eval_strategy="no",
         report_to="none",
@@ -133,18 +152,18 @@ def train_model(model, train_dataset, eval_dataset, tokenizer, model_name="Model
     # Create data collator
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
-        mlm=False,  # No masked language modeling for GPT-2
+        mlm=False,  # No masked language modeling for autoregressive GPT-2
     )
     
     # Set training arguments
     training_args = TrainingArguments(
         output_dir=f"./trained_{model_name.lower().replace(' ', '_')}",
-        per_device_train_batch_size=2,
-        per_device_eval_batch_size=4,
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=8,
         evaluation_strategy="steps",
         eval_steps=500,
         logging_steps=100,
-        gradient_accumulation_steps=8,
+        gradient_accumulation_steps=4,
         num_train_epochs=num_epochs,
         weight_decay=0.01,
         warmup_steps=500,
@@ -198,8 +217,8 @@ def train_model(model, train_dataset, eval_dataset, tokenizer, model_name="Model
 # --------------------------------------------------
 # 4. Main comparison function
 # --------------------------------------------------
-def compare_models(do_train=True, num_epochs=1):
-    """Compare original and FC-transformed models"""
+def compare_models(do_train=True, num_epochs=1, low_rank_ratio=4):
+    """Compare original and Low-Rank FC-transformed models"""
     # Prepare dataset
     dataset, tokenizer = prepare_dataset()
     
@@ -208,39 +227,69 @@ def compare_models(do_train=True, num_epochs=1):
     original_model = GPT2LMHeadModel.from_pretrained("openai-community/gpt2")
     original_model.config.pad_token_id = tokenizer.eos_token_id
     
-    # 2. FC-Transformed Model
-    logger.info("Loading and transforming model...")
+    # 2. Low-Rank FC-Transformed Model
+    logger.info("Loading and transforming model with low-rank FC...")
     transformed_model = GPT2LMHeadModel.from_pretrained("openai-community/gpt2")
     transformed_model.config.pad_token_id = tokenizer.eos_token_id
     
-    # Apply FC transformation
+    # Get hidden size for rank calculation
+    hidden_size = transformed_model.config.hidden_size
+    rank = hidden_size // low_rank_ratio  # Controllable rank
+    
+    # Apply Low-Rank FC transformation
+    # We'll transform the last layer of the model as in your original code
     module_name = "transformer.h.11.attn"
-    transformed_model = fc_transform_pass(transformed_model, module_name, config={})
+    transformed_model = fc_transform_pass(
+        transformed_model, 
+        module_name, 
+        config={
+            "low_rank": True,
+            "rank": rank,
+            "alpha": 1.0,  # Use only the low-rank version (no residual)
+        }
+    )
     
     # Memory usage analysis
     def get_model_size(model):
         return sum(p.numel() * p.element_size() for p in model.parameters()) / (1024 * 1024)  # Size in MB
     
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters())
+    
     original_size = get_model_size(original_model)
     transformed_size = get_model_size(transformed_model)
+    original_params = count_parameters(original_model)
+    transformed_params = count_parameters(transformed_model)
     
     print("\n" + "="*50)
-    print("Model Size Comparison:")
+    print("Model Analysis:")
     print("="*50)
+    print(f"Low-Rank Ratio: 1/{low_rank_ratio} (rank={rank})")
     print(f"Original Model Size: {original_size:.2f} MB")
-    print(f"Transformed Model Size: {transformed_size:.2f} MB")
+    print(f"Low-Rank Transformed Model Size: {transformed_size:.2f} MB")
     print(f"Size Reduction: {original_size - transformed_size:.2f} MB ({100 * (original_size - transformed_size) / original_size:.2f}%)")
+    print(f"Original Parameters: {original_params:,}")
+    print(f"Transformed Parameters: {transformed_params:,}")
+    print(f"Parameter Reduction: {original_params - transformed_params:,} ({100 * (original_params - transformed_params) / original_params:.2f}%)")
     print("="*50)
     
     # Evaluation phase
     original_eval = evaluate_model(original_model, dataset["test"], tokenizer, "Original GPT-2")
-    transformed_eval = evaluate_model(transformed_model, dataset["test"], tokenizer, "FC-Transformed GPT-2")
+    transformed_eval = evaluate_model(transformed_model, dataset["test"], tokenizer, "Low-Rank FC GPT-2")
     
     results = {
+        "model_config": {
+            "low_rank_ratio": low_rank_ratio,
+            "rank": rank,
+            "hidden_size": hidden_size,
+        },
         "model_sizes": {
-            "original": original_size,
-            "transformed": transformed_size,
-            "reduction_percent": 100 * (original_size - transformed_size) / original_size
+            "original_mb": original_size,
+            "transformed_mb": transformed_size,
+            "reduction_percent": 100 * (original_size - transformed_size) / original_size,
+            "original_params": original_params,
+            "transformed_params": transformed_params,
+            "param_reduction_percent": 100 * (original_params - transformed_params) / original_params
         },
         "evaluation": {
             "original": original_eval,
@@ -256,7 +305,7 @@ def compare_models(do_train=True, num_epochs=1):
                                     tokenizer, "Original GPT-2", num_epochs)
         
         transformed_train = train_model(transformed_model, dataset["train"], dataset["validation"], 
-                                       tokenizer, "FC-Transformed GPT-2", num_epochs)
+                                       tokenizer, "Low-Rank FC GPT-2", num_epochs)
         
         results["training"] = {
             "original": original_train,
@@ -265,32 +314,34 @@ def compare_models(do_train=True, num_epochs=1):
     
     # Save results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(f"model_comparison_results_{timestamp}.json", "w") as f:
+    with open(f"lowrank_model_comparison_results_{timestamp}.json", "w") as f:
         json.dump(results, f, indent=2, default=str)
     
     # Print comparison summary
     print("\n" + "="*50)
     print("Model Comparison Summary:")
     print("="*50)
+    print(f"Low-Rank Configuration: 1/{low_rank_ratio} of hidden size (rank={rank})")
     print(f"Original Model Perplexity: {original_eval['perplexity']:.4f}")
-    print(f"FC-Transformed Model Perplexity: {transformed_eval['perplexity']:.4f}")
+    print(f"Low-Rank FC Model Perplexity: {transformed_eval['perplexity']:.4f}")
     print(f"Perplexity Impact: {((transformed_eval['perplexity'] - original_eval['perplexity']) / original_eval['perplexity'] * 100):.2f}%")
     print()
     print(f"Original Model Eval Time: {original_eval['eval_time']:.2f} seconds")
-    print(f"FC-Transformed Model Eval Time: {transformed_eval['eval_time']:.2f} seconds")
+    print(f"Low-Rank FC Model Eval Time: {transformed_eval['eval_time']:.2f} seconds")
     print(f"Speed Improvement: {((original_eval['eval_time'] - transformed_eval['eval_time']) / original_eval['eval_time'] * 100):.2f}%")
     print()
     print(f"Size Reduction: {results['model_sizes']['reduction_percent']:.2f}%")
+    print(f"Parameter Reduction: {results['model_sizes']['param_reduction_percent']:.2f}%")
     print("="*50)
     
     if do_train:
         print("\nTraining Results:")
         print(f"Original Model Training Time: {results['training']['original']['train_time']:.2f} seconds")
-        print(f"FC-Transformed Model Training Time: {results['training']['transformed']['train_time']:.2f} seconds")
+        print(f"Low-Rank FC Model Training Time: {results['training']['transformed']['train_time']:.2f} seconds")
         print(f"Training Speed Improvement: {((results['training']['original']['train_time'] - results['training']['transformed']['train_time']) / results['training']['original']['train_time'] * 100):.2f}%")
         print()
         print(f"Original Model Final Perplexity: {results['training']['original']['final_perplexity']:.4f}")
-        print(f"FC-Transformed Model Final Perplexity: {results['training']['transformed']['final_perplexity']:.4f}")
+        print(f"Low-Rank FC Model Final Perplexity: {results['training']['transformed']['final_perplexity']:.4f}")
         print("="*50)
     
     return results
@@ -298,11 +349,12 @@ def compare_models(do_train=True, num_epochs=1):
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Compare original GPT-2 with FC-transformed version")
+    parser = argparse.ArgumentParser(description="Compare original GPT-2 with Low-Rank FC-transformed version")
     parser.add_argument("--train", action="store_true", help="Include training comparison")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
+    parser.add_argument("--rank-ratio", type=int, default=4, help="Divisor for hidden size to get rank (higher means more compression)")
     
     args = parser.parse_args()
     
     # Run comparison
-    compare_models(do_train=args.train, num_epochs=args.epochs)
+    compare_models(do_train=args.train, num_epochs=args.epochs, low_rank_ratio=args.rank_ratio)

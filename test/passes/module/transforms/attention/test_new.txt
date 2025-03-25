@@ -1,0 +1,119 @@
+(mase) (jupyter) python test_fc_transform.py --train --epochs 1 --rank-ratio 4
+Tokenizing and grouping dataset - train: 100%|██████████████████████████████████████████| 36718/36718 [00:21<00:00, 1697.74 examples/s]
+Tokenizing and grouping dataset - validation: 100%|███████████████████████████████████████| 3760/3760 [00:02<00:00, 1526.24 examples/s]
+Tokenizing and grouping dataset - test: 100%|█████████████████████████████████████████████| 4358/4358 [00:02<00:00, 1579.30 examples/s]
+Filtering blocks - train: 100%|█████████████████████████████████████████████████████████| 18667/18667 [00:02<00:00, 8822.11 examples/s]
+Filtering blocks - validation: 100%|██████████████████████████████████████████████████████| 1930/1930 [00:00<00:00, 8762.85 examples/s]
+Filtering blocks - test: 100%|████████████████████████████████████████████████████████████| 2210/2210 [00:00<00:00, 8779.91 examples/s]
+SVD failed: The size of tensor a (768) must match the size of tensor b (192) at non-singleton dimension 1. Falling back to random initialization.
+
+==================================================
+Model Analysis:
+==================================================
+Low-Rank Ratio: 1/4 (rank=192)
+Original Model Size: 474.70 MB
+Low-Rank Transformed Model Size: 475.83 MB
+Size Reduction: -1.13 MB (-0.24%)
+Original Parameters: 124,439,808
+Transformed Parameters: 124,735,488
+Parameter Reduction: -295,680 (-0.24%)
+==================================================
+WARNING:accelerate.utils.other:Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|████████████████████████████████████████████████████████████████████████████████████████████████| 277/277 [00:06<00:00, 41.58it/s]
+
+==================================================
+Original GPT-2 Evaluation Results:
+==================================================
+Eval Loss (Cross Entropy): 4.0657
+Perplexity: 58.3043
+Evaluation Time: 8.43 seconds
+==================================================
+WARNING:accelerate.utils.other:Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|████████████████████████████████████████████████████████████████████████████████████████████████| 277/277 [00:06<00:00, 41.33it/s]
+
+==================================================
+Low-Rank FC GPT-2 Evaluation Results:
+==================================================
+Eval Loss (Cross Entropy): 4.3024
+Perplexity: 73.8775
+Evaluation Time: 6.72 seconds
+==================================================
+/rds/general/user/zz3521/home/miniforge3/envs/mase/lib/python3.11/site-packages/transformers/training_args.py:1575: FutureWarning: `evaluation_strategy` is deprecated and will be removed in version 4.46 of 🤗 Transformers. Use `eval_strategy` instead
+  warnings.warn(
+WARNING:accelerate.utils.other:Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'loss': 16.7036, 'grad_norm': 23.325037002563477, 'learning_rate': 1e-05, 'epoch': 0.09}                                              
+{'loss': 15.278, 'grad_norm': 23.026351928710938, 'learning_rate': 2e-05, 'epoch': 0.17}                                               
+{'loss': 14.7479, 'grad_norm': 21.651540756225586, 'learning_rate': 3e-05, 'epoch': 0.26}                                              
+{'loss': 14.4915, 'grad_norm': 20.400611877441406, 'learning_rate': 4e-05, 'epoch': 0.34}                                              
+{'loss': 14.2829, 'grad_norm': 19.40869903564453, 'learning_rate': 5e-05, 'epoch': 0.43}                                               
+{'eval_loss': 3.4647343158721924, 'eval_runtime': 5.871, 'eval_samples_per_second': 328.735, 'eval_steps_per_second': 41.22, 'epoch': 0.43}                                                                                                                                   
+{'loss': 14.1296, 'grad_norm': 18.586091995239258, 'learning_rate': 4.726980682330071e-05, 'epoch': 0.51}                              
+{'loss': 14.015, 'grad_norm': 16.31776237487793, 'learning_rate': 3.967554367577047e-05, 'epoch': 0.6}                                 
+{'loss': 14.0354, 'grad_norm': 14.82674503326416, 'learning_rate': 2.8875914991604948e-05, 'epoch': 0.69}                              
+{'loss': 13.8958, 'grad_norm': 17.497314453125, 'learning_rate': 1.722972657435572e-05, 'epoch': 0.77}                                 
+{'loss': 13.856, 'grad_norm': 16.941072463989258, 'learning_rate': 7.280685956129049e-06, 'epoch': 0.86}                               
+{'eval_loss': 3.4106192588806152, 'eval_runtime': 5.897, 'eval_samples_per_second': 327.286, 'eval_steps_per_second': 41.038, 'epoch': 0.86}                                                                                                                                  
+{'loss': 13.8549, 'grad_norm': 14.330263137817383, 'learning_rate': 1.201817361771837e-06, 'epoch': 0.94}                              
+{'train_runtime': 231.4499, 'train_samples_per_second': 80.652, 'train_steps_per_second': 5.038, 'train_loss': 14.44516247705162, 'epoch': 1.0}
+100%|██████████████████████████████████████████████████████████████████████████████████████████████| 1166/1166 [03:51<00:00,  5.04it/s]
+100%|████████████████████████████████████████████████████████████████████████████████████████████████| 242/242 [00:05<00:00, 41.13it/s]
+
+==================================================
+Original GPT-2 Training Results:
+==================================================
+Training Time: 231.61 seconds
+Final Eval Loss: 3.4075
+Final Perplexity: 30.1903
+==================================================
+/rds/general/user/zz3521/home/miniforge3/envs/mase/lib/python3.11/site-packages/transformers/training_args.py:1575: FutureWarning: `evaluation_strategy` is deprecated and will be removed in version 4.46 of 🤗 Transformers. Use `eval_strategy` instead
+  warnings.warn(
+WARNING:accelerate.utils.other:Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+{'loss': 17.3779, 'grad_norm': 17.11419105529785, 'learning_rate': 1e-05, 'epoch': 0.09}                                               
+{'loss': 15.5249, 'grad_norm': 16.142826080322266, 'learning_rate': 2e-05, 'epoch': 0.17}                                              
+{'loss': 14.9354, 'grad_norm': 15.65827465057373, 'learning_rate': 3e-05, 'epoch': 0.26}                                               
+{'loss': 14.6483, 'grad_norm': 15.618012428283691, 'learning_rate': 4e-05, 'epoch': 0.34}                                              
+{'loss': 14.4244, 'grad_norm': 14.88492202758789, 'learning_rate': 5e-05, 'epoch': 0.43}                                               
+{'eval_loss': 3.4915828704833984, 'eval_runtime': 5.9146, 'eval_samples_per_second': 326.311, 'eval_steps_per_second': 40.916, 'epoch': 0.43}                                                                                                                                 
+{'loss': 14.2569, 'grad_norm': 14.648173332214355, 'learning_rate': 4.726980682330071e-05, 'epoch': 0.51}                              
+{'loss': 14.1433, 'grad_norm': 13.230489730834961, 'learning_rate': 3.967554367577047e-05, 'epoch': 0.6}                               
+{'loss': 14.1565, 'grad_norm': 12.406950950622559, 'learning_rate': 2.8875914991604948e-05, 'epoch': 0.69}                             
+{'loss': 14.019, 'grad_norm': 14.152302742004395, 'learning_rate': 1.722972657435572e-05, 'epoch': 0.77}                               
+{'loss': 13.9808, 'grad_norm': 14.069870948791504, 'learning_rate': 7.280685956129049e-06, 'epoch': 0.86}                              
+{'eval_loss': 3.437305212020874, 'eval_runtime': 5.9209, 'eval_samples_per_second': 325.966, 'eval_steps_per_second': 40.872, 'epoch': 0.86}                                                                                                                                  
+{'loss': 13.9811, 'grad_norm': 12.264592170715332, 'learning_rate': 1.201817361771837e-06, 'epoch': 0.94}                              
+{'train_runtime': 230.5978, 'train_samples_per_second': 80.95, 'train_steps_per_second': 5.056, 'train_loss': 14.637320830932408, 'epoch': 1.0}
+100%|██████████████████████████████████████████████████████████████████████████████████████████████| 1166/1166 [03:50<00:00,  5.06it/s]
+100%|████████████████████████████████████████████████████████████████████████████████████████████████| 242/242 [00:05<00:00, 40.94it/s]
+
+==================================================
+Low-Rank FC GPT-2 Training Results:
+==================================================
+Training Time: 230.75 seconds
+Final Eval Loss: 3.4343
+Final Perplexity: 31.0106
+==================================================
+
+==================================================
+Model Comparison Summary:
+==================================================
+Low-Rank Configuration: 1/4 of hidden size (rank=192)
+Original Model Perplexity: 58.3043
+Low-Rank FC Model Perplexity: 73.8775
+Perplexity Impact: 26.71%
+
+Original Model Eval Time: 8.43 seconds
+Low-Rank FC Model Eval Time: 6.72 seconds
+Speed Improvement: 20.31%
+
+Size Reduction: -0.24%
+Parameter Reduction: -0.24%
+==================================================
+
+Training Results:
+Original Model Training Time: 231.61 seconds
+Low-Rank FC Model Training Time: 230.75 seconds
+Training Speed Improvement: 0.37%
+
+Original Model Final Perplexity: 30.1903
+Low-Rank FC Model Final Perplexity: 31.0106
+==================================================

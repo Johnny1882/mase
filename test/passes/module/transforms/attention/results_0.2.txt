@@ -1,0 +1,41 @@
+==================================================
+Model Size Comparison:
+==================================================
+Original Model Size: 474.70 MB
+Transformed Model Size: 476.95 MB
+Size Reduction: -2.25 MB (-0.47%)
+==================================================
+WARNING:accelerate.utils.other:Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 723/723 [00:13<00:00, 55.27it/s]
+
+==================================================
+Original GPT-2 Evaluation Results:
+==================================================
+Eval Loss (Cross Entropy): 4.2515
+Perplexity: 70.2082
+Evaluation Time: 14.35 seconds
+==================================================
+WARNING:accelerate.utils.other:Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 723/723 [00:13<00:00, 55.05it/s]
+
+==================================================
+FC-Transformed GPT-2 Evaluation Results:
+==================================================
+Eval Loss (Cross Entropy): 4.2515
+Perplexity: 70.2082
+Evaluation Time: 13.14 seconds
+==================================================
+
+==================================================
+Model Comparison Summary:
+==================================================
+Original Model Perplexity: 70.2082
+FC-Transformed Model Perplexity: 70.2082
+Perplexity Impact: 0.00%
+
+Original Model Eval Time: 14.35 seconds
+FC-Transformed Model Eval Time: 13.14 seconds
+Speed Improvement: 8.37%
+
+Size Reduction: -0.47%
+==================================================
