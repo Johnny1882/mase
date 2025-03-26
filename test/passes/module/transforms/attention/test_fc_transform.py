@@ -237,15 +237,15 @@ def compare_models(do_train=True, num_epochs=1, low_rank_ratio=4):
     rank = hidden_size // low_rank_ratio  # Controllable rank
     
     # Apply Low-Rank FC transformation
-    # We'll transform the last layer of the model as in your original code
+    # We'll transform the last layer of the model
     module_name = "transformer.h.11.attn"
     transformed_model = fc_transform_pass(
         transformed_model, 
         module_name, 
         config={
             "low_rank": True,
-            "rank": rank,
-            "alpha": 1.0,  # Use only the low-rank version (no residual)
+            "rank": rank
+            # No alpha parameter as it's removed in the updated implementation
         }
     )
     
@@ -349,10 +349,11 @@ def compare_models(do_train=True, num_epochs=1, low_rank_ratio=4):
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Compare original GPT-2 with Low-Rank FC-transformed version")
+    parser = argparse.ArgumentParser(description="Compare original GPT-2 with enhanced Low-Rank FC-transformed version")
     parser.add_argument("--train", action="store_true", help="Include training comparison")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
     parser.add_argument("--rank-ratio", type=int, default=4, help="Divisor for hidden size to get rank (higher means more compression)")
+    parser.add_argument("--profile", action="store_true", help="Run detailed profiling")
     
     args = parser.parse_args()
     
